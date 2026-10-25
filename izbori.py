@@ -41,7 +41,7 @@ EXCLUDE = ["Bugar", "Sofij", "Bulgaria", "Sofia", "Radev"]  # "bugarski voz" (vo
 # Summary box above the news, per hour. Built only from sentences in the articles: nothing is guessed.
 CITIES = ["Beograd", "Novi Sad", "Niš", "Kragujevac", "Subotica", "Zrenjanin", "Pančevo", "Čačak",
           "Kraljevo", "Novi Pazar", "Šabac", "Smederevo", "Leskovac", "Valjevo", "Vranje", "Užice",
-          "Kruševac", "Sombor", "Jagodina", "Zaječar", "Pirot", "Loznica", "Sremska Mitrovica"]
+          "Kruševac", "Sombor", "Jagodina", "Zaječar", "Pirot", "Loznica", "Sremska Mitrovica", "Prokuplje"]
 # Diaspora: these come first in the widget, then any other city below that the news mentions.
 WORLD_FIRST = ["Berlin", "London", "New York"]
 WORLD = WORLD_FIRST + ["Beč", "Cirih", "Pariz", "Frankfurt", "Minhen", "Štutgart", "Brisel", "Amsterdam",
@@ -90,7 +90,7 @@ def city_re(city):
 WORLD_SPECIAL = {"New York": r"\b(?:nju\s*jork|new\s+york)\w*", "Beč": r"\bbeč(?!ej)\w*",  # not Bečej
                  "Cirih": r"\b(?:cirih|zürich|zurich)\w*"}
 WORLD_RES = [(c, re.compile(WORLD_SPECIAL[c]) if c in WORLD_SPECIAL else city_re(c)) for c in WORLD]
-CITY_RES = [(c, re.compile(r"\b(?:beograd|prestonic|glavnom gradu)\w*") if c == "Beograd" else city_re(c))
+CITY_RES = [(c, re.compile(r"\b(?:beogradsk\w*\s+region\w*|beograd\w*|prestonic\w*|glavnom gradu)") if c == "Beograd" else city_re(c))
             for c in CITIES] + WORLD_RES + [
     ("Dijaspora", re.compile(r"\b(?:dijaspor\w*|inostranstv\w*|diaspora|abroad|(?:iz)?van\s+(?:zemlje|srbije))")),
     ("Srbija", re.compile(r"\bsrbij\w*"))]
@@ -134,7 +134,7 @@ def fetch(feed):
             "outlet": name, "title": plain(text(it, "title")), "link": text(it, "link"),
             "snippet": plain(text(it, "description"))[:240], "when": when,
             # full text, only searched for the summary, never shown or saved
-            "body": plain(BLOCK_END.sub(". ", text(it, "description") + " " + text(it, CONTENT)))[:5000],
+            "body": plain(BLOCK_END.sub(". ", text(it, "description") + " " + text(it, CONTENT)))[:30000],
             "cats": [norm(c.text or "").strip() for c in it.findall("category")],
         })
     return items
@@ -167,16 +167,40 @@ def collect(show_all):
 
 
 def pct(text):  # first percentage: "18,2 odsto" -> "18,2%"
-    return re.search(r"\d+(?:[.,]\d+)?", PERCENT.search(text).group()).group() + "%"
+    return re.search(r"\d+(?:[.,]\d+)?", PERCENT.search(text).group()).group().replace(".", ",") + "%"
 
 
 # "u Bečeju", "у Врању": some place that is not in the lists, so not a figure for all of Serbia
-OTHER_PLACE = re.compile(r"\b[uUуУ]\s+[A-ZČĆŠŽĐА-ЯЂЈЉЊЋЏ][a-zčćšžđа-яђјљњћџ]")
+OTHER_PLACE = re.compile(r"\b(?:[uUуУ]|području|teritoriji)\s+[A-ZČĆŠŽĐА-ЯЂЈЉЊЋЏ][a-zčćšžđа-яђјљњћџ]")
+# regions and "this town" are not all of Serbia either ("u Regionu Šumadije", "na jugu Srbije")
+NOT_NATIONAL = re.compile(r"\b(?:region\w*|vojv?odin\w*|vojovodin\w*|šumadij\w*|na\s+(?:jugu|severu|istoku|zapadu)|"
+                          r"(?:ovom|tom)\s+gradu|opštin\w*|selu)")
+REGION_SRBIJA = re.compile(r"\b(?:južn\w*|istočn\w*|zapadn\w*|severn\w*|centraln\w*|jug\w*|sever\w*|istok\w*|"
+                           r"zapad\w*)\s+(?:i\s+\w+\s+)?srbij\w*")
+# Dropped before reading figures: the sample ("na 93,7 odsto obrađenog uzorka"), and everything from a
+# comparison on ("što je za 14 odsto više", "na prethodnim izborima", "2023. bila je 8,96%").
+SAMPLE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|odsto|posto|procen\w*)\s+(?:obrađen\w*|uzor\w*|materijal\w*)")
+COMPARE = re.compile(r"\b(?:20(?:0\d|1\d|2[0-5])\b|prethodn|prošl|poređenja|u odnosu|više nego|manje nego|"
+                     r"za\s+(?:čak\s+)?\d[\d.,]*\s*(?:%|odsto|posto|procen\w*)?\s*(?:poena\s+)?(?:više|manje))")
+# "17:21 – U Čačku...": a live-blog entry's time; "do 16 sati", "do 16.00", "za 13h": the time of the figure
+ENTRY = re.compile(r"^\W*(\d{1,2})[.:](\d{2})\b(?!\s*%|[.,]?\d)")
+AT_HOUR = re.compile(r"\b(?:do|za|u)\s+(\d{1,2})(?:(?:[.:]00)?\s*(?:h\b|sat|čas)|[.:]00\b)")
+
+
+ADJECTIVE = re.compile(r"(?:sk|šk|čk)(?:i|a|o|e|og|om|oj|ih|im)$")  # not "u": "u Čačku" is the town
+
+
+def clean(l):
+    l = SAMPLE.sub(" ", REGION_SRBIJA.sub("region", l))
+    m = COMPARE.search(l)
+    return l[:m.start()] if m else l
 
 
 def places(l, sent=""):
     """[(place, "31,2%")] for each city in the sentence ("Beograd 35%, Niš 31%"), else [("Srbija", ...)]."""
-    hits = sorted((m.start(), c) for c, r in CITY_RES for m in [r.search(l)] if m)
+    # adjectives ("niškog univerziteta", "kragujevački") are not the place itself
+    hits = sorted((m.start(), c) for c, r in CITY_RES
+                  for m in [next((m for m in r.finditer(l) if not ADJECTIVE.search(m.group())), None)] if m)
     out = []
     for i, (start, c) in enumerate(hits):
         end = hits[i + 1][0] if i + 1 < len(hits) else len(l)
@@ -185,7 +209,9 @@ def places(l, sent=""):
             seg = l[:end]
         if PERCENT.search(seg):
             out.append((c, pct(seg)))
-    return out or ([] if OTHER_PLACE.search(sent) else [("Srbija", pct(l))])
+    adjective = any(ADJECTIVE.search(m.group()) for c, r in CITY_RES if c != "Srbija" for m in r.finditer(l))
+    local_only = OTHER_PLACE.search(sent) or NOT_NATIONAL.search(l) or adjective  # "Čačanski GIK: 50%"
+    return out or ([] if local_only else [("Srbija", pct(l))])
 
 
 def summarize(items):
@@ -202,9 +228,16 @@ def summarize(items):
         if not relevant(it):
             continue
         pub = local(it["when"])
-        prev_turnout = False
-        for sent in re.split(r"(?<=[.!?])\s+", it["title"] + ". " + it["body"]):
-            n, l = norm(sent), lat(sent)  # diacritics kept for cities, so "nisu" is not read as Niš
+        prev_turnout, entry, at = False, None, None
+        # (not after a digit: "2023. godine" and "21.53%" do not end a sentence)
+        for sent in re.split(r"(?<=[^\d][.!?])\s+", it["title"] + ". " + it["body"]):
+            n, l = norm(sent), clean(lat(sent))  # diacritics kept for cities, so "nisu" is not read as Niš
+            m = ENTRY.match(sent)
+            if m and int(m.group(1)) < 24 and int(m.group(2)) < 60:
+                entry, at = pub.replace(hour=int(m.group(1)), minute=int(m.group(2))), None
+            m = AT_HOUR.search(l)
+            if m and int(m.group(1)) < 24:  # kept for the rest of the entry ("do tada je u Čačku...")
+                at = pub.replace(hour=int(m.group(1)), minute=0)
             # a turnout figure: the sentence, or the one before it, talks about turnout
             # (and it carries on through a list: "Izlaznost po gradovima:" / "Beograd 58%" / "Niš 61%")
             own = TURNOUT_P.search(n) or DIASPORA_P.search(n)
@@ -214,12 +247,9 @@ def summarize(items):
             prev_turnout = bool(TURNOUT_P.search(n) or found)
             if not found:
                 continue
-            # "do 16 sati" / "do 16h" / "do 16 časova": the figure belongs to 16:00, not to when the
-            # article (often a live blog opened in the morning) was first published
-            m = re.search(r"\bdo\s+(\d{1,2})(?:[.:]00)?\s*(?:h\b|sat|čas)", l)
-            when = pub.replace(hour=int(m.group(1)), minute=0) if m and int(m.group(1)) < 24 else pub
-            if when > now:
-                when = pub
+            # the figure's own time, else the live-blog entry's, else when the article was first published
+            # (a live blog keeps its morning publish time all day)
+            when = next((t for t in (at, entry) if t and t <= now), pub)
             h = bucket(when)
             for place, value in found:
                 if (place, value) in h["seen"]:  # same figure only once per hour
