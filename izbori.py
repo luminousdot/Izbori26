@@ -72,6 +72,16 @@ def words(lst):
         r"\b" + re.escape(norm(k)) + (r"\b" if k.isupper() else "") for k in lst))
 
 
+def city_re(city):
+    """Matches the city in any case form: Novi Sad/Novom Sadu, Kragujevac/Kragujevcu, Šabac/Šapcu."""
+    stems = []
+    for w in lat(city).split():
+        w = w[:-2] if w.endswith(("ac", "ak")) else w[:-1] if w[-1] in "aeio" else w
+        stems.append(re.escape(w).replace("šab", "ša[bp]"))
+    return re.compile(r"\b" + r"\w*\s+".join(stems) + r"\w*")
+
+
+CITY_RES = [(c, city_re(c)) for c in CITIES]
 PATTERN, EXCLUDE_PATTERN = words(KEYWORDS), words(EXCLUDE)
 TURNOUT_P, DIASPORA_P, IRREGULAR_P = words(TURNOUT), words(DIASPORA), words(IRREGULAR)
 PERCENT = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|odsto|posto|procen\w*)")
@@ -156,7 +166,7 @@ def summarize(items):
             if not PERCENT.search(sent) or len(sent) > 300:
                 continue
             # diacritics kept for cities, so "nisu" (are not) is not read as Niš
-            city = next((c for c in CITIES if re.search(r"\b" + lat(c), lat(sent))), "Srbija")
+            city = next((c for c, r in CITY_RES if r.search(lat(sent))), "Srbija")
             key = (city, tuple(re.findall(r"\d+(?:[.,]\d+)?", sent)))  # same figure only once
             if key in h["seen"]:
                 continue
@@ -267,11 +277,13 @@ def render_summary(items):
         nepr = d["nepr"]
         nepr_txt = link(nepr[0], e(nepr[0]["title"])) + (
             " · +%d još" % (len(nepr) - 1) if len(nepr) > 1 else "") if nepr else ""
-        blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s</div></details>' % (
+        blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
             widget("Procenat izlaznosti po gradovima", *turnout(d["grad"])),
             widget("Procenat izlaznosti u dijaspori", *turnout(d["dijaspora"], False)),
-            widget("Nepravilnosti", len(nepr), nepr_txt)))
+            widget("Nepravilnosti", len(nepr), nepr_txt),
+            "".join(widget("Izlaznost " + label, *turnout([r for r in d["grad"] if r[0] == city], False))
+                    for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")])))
     out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
     if len(blocks) > 1:
         out.append('<details class="older"><summary>Raniji podaci</summary>%s</details>' % "".join(blocks[1:]))
