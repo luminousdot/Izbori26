@@ -47,4 +47,7 @@ Files: `api/index.py` and `vercel.json`.
 | Mašina | https://www.masina.rs/feed/ |
 | Južne vesti (Niš) | https://www.juznevesti.com/feed/ (added 25 Oct, not yet checked) |
 
+Live pages read directly for turnout figures (election day only, skipped quietly if they fail):
+Nedeljnik uživo, Danas presek izlaznosti, 021 uživo Novi Sad (`LIVE_PAGES` in `izbori.py`).
+
 birn.rs has no feed. No separate feed found for TV Nova / Nova S; nova.rs covers it.

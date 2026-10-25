@@ -24,6 +24,13 @@ FEEDS = [
     ("Mašina", "https://www.masina.rs/feed/"),
     ("Južne vesti", "https://www.juznevesti.com/feed/"),  # Niš and the south
 ]
+# Live pages read directly (only for election day): their turnout figures are often not in any feed.
+# Read like a live blog, at most every 2 minutes on Vercel; a page that fails is skipped quietly.
+LIVE_PAGES = [
+    ("Nedeljnik", "https://www.nedeljnik.rs/uzivo/"),
+    ("Danas", "https://www.danas.rs/vesti/politika/izbori-2026-presek-izlaznosti/"),
+    ("021", "https://www.021.rs/novi-sad/vesti/458968/uzivo-izbori-novi-sad-glasalo-vise-od-60-odsto-biraca-do-16-casova-sumnja-na-paralelne-spiskove-u-veterniku"),
+]
 
 # Edit freely. Matched at the start of a word, ignoring case, Cyrillic/Latin and č/ć/š/ž/đ.
 # ALL-CAPS entries (acronyms) must match a whole word.
@@ -117,11 +124,28 @@ def plain(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
-def fetch(feed):
-    name, url = feed
+def get(url):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=15) as r:
-        root = ET.fromstring(r.read())
+        return r.read()
+
+
+def fetch_page(page):
+    """A live page as one item, dated now: its entries ("17:21 – ...") give each figure its time."""
+    name, url = page
+    doc = get(url)[:2000000].decode("utf-8", "replace")
+    doc = re.sub(r"(?is)<(script|style|noscript|svg)\b.*?</\1>", " ", doc)
+    title = re.search(r"(?is)<title[^>]*>(.*?)</title>", doc)
+    desc = re.search(r'(?is)<meta[^>]+(?:property|name)="(?:og:)?description"[^>]+content="([^"]*)"', doc)
+    return [{"outlet": name, "title": plain(title.group(1)) if title else name, "link": url,
+             "snippet": plain(desc.group(1))[:240] if desc else "", "when": datetime.now(timezone.utc),
+             "body": plain(BLOCK_END.sub(". ", re.split(r"(?i)<body\b", doc, 1)[-1]))[:80000],
+             "cats": [], "live": True}]
+
+
+def fetch(feed):
+    name, url = feed
+    root = ET.fromstring(get(url))
     items = []
     for it in root.iter("item"):
         try:
@@ -150,12 +174,14 @@ def relevant(item):
 
 def collect(show_all):
     items, failed = [], []
-    with ThreadPoolExecutor(len(FEEDS)) as pool:
+    with ThreadPoolExecutor(len(FEEDS) + len(LIVE_PAGES)) as pool:
+        pages = pool.map(lambda p: safe(fetch_page, p), LIVE_PAGES)
         for feed, res in zip(FEEDS, pool.map(lambda f: safe(fetch, f), FEEDS)):
             if res is None:
                 failed.append(feed[0])
             else:
                 items += res
+        items += [it for res in pages if res for it in res]  # failures not shown
     seen, out = set(), []
     for it in sorted(items, key=lambda i: i["when"], reverse=True):
         if it["when"] < SINCE:
@@ -249,7 +275,11 @@ def summarize(items):
                 continue
             # the figure's own time, else the live-blog entry's, else when the article was first published
             # (a live blog keeps its morning publish time all day)
-            when = next((t for t in (at, entry) if t and t <= now), pub)
+            when = next((t for t in (at, entry) if t and t <= now), None)
+            if when is None:
+                if it.get("live"):  # a live page has no publish time: only figures with their own time
+                    continue
+                when = pub
             h = bucket(when)
             for place, value in found:
                 if (place, value) in h["seen"]:  # same figure only once per hour
@@ -259,6 +289,9 @@ def summarize(items):
                 h["dijaspora" if abroad else "grad"].append((place, sent, it, value, when))
         if IRREGULAR_P.search(norm(it["title"] + " " + it["snippet"])):
             bucket(pub)["nepr"].append(it)
+    for d in hours.values():  # latest first; at the same time the more precise one ("60,4%" over "60%")
+        for k in ("grad", "dijaspora"):
+            d[k].sort(key=lambda r: (-r[4].timestamp(), "," not in r[3]))
     return sorted(hours.items(), reverse=True)
 
 
@@ -461,7 +494,7 @@ def render_summary(items):
 def render(items, failed, show_all):
     e = html.escape
     now = local(datetime.now(timezone.utc))
-    outlets = [n for n, _ in FEEDS if any(i["outlet"] == n for i in items)]
+    outlets = list(dict.fromkeys(n for n, _ in FEEDS + LIVE_PAGES if any(i["outlet"] == n for i in items)))
     chips = '<button class="on" data-o="">Sve</button>' + "".join(
         '<button data-o="%s">%s</button>' % (e(n), e(n)) for n in outlets)
     rows = "".join(
