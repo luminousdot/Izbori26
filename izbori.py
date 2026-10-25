@@ -321,8 +321,10 @@ CSS = """
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){%s}}
 :root[data-theme=dark]{%s}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
-#theme{font:inherit;font-size:1.1rem;line-height:1;width:40px;height:40px;border-radius:999px;cursor:pointer;
+.btns{display:flex;gap:8px}
+.btns button{font:inherit;font-size:1.1rem;line-height:1;width:40px;height:40px;border-radius:999px;cursor:pointer;
 border:1px solid var(--line);background:var(--chip);color:var(--fg)}
+#reload.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 """ % (DARK, DARK) + """*{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,
 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -375,6 +377,9 @@ document.querySelectorAll('[data-dialog]').forEach(w=>{const d=document.getEleme
  w.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();open(ev);}};});
 document.querySelectorAll('dialog').forEach(d=>{d.onclick=ev=>{if(ev.target===d)d.close();};
  d.querySelector('.x').onclick=()=>d.close();});
+// a new query string skips the 2-minute Vercel cache, so the feeds are read again now
+document.getElementById('reload').onclick=ev=>{ev.currentTarget.classList.add('spin');
+ const u=new URL(location.href);u.searchParams.set('r',Date.now());location.replace(u);};
 icon();tb.onclick=()=>{root.dataset.theme=isDark()?'light':'dark';
  try{localStorage.setItem('theme',root.dataset.theme)}catch(e){};icon();};
 document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{
@@ -507,7 +512,8 @@ def render(items, failed, show_all):
 <meta http-equiv="refresh" content="300"><title>Izbori 2026</title><style>%s</style>
 <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
 <body><main><header><div class="top"><h1>Izbori 2026</h1>
-<button id="theme" type="button" aria-label="Promeni temu"></button></div><p>Ažurirano %s · %d vesti%s</p></header>%s
+<div class="btns"><button id="reload" type="button" aria-label="Osveži" title="Osveži">&#x21BB;</button>
+<button id="theme" type="button" aria-label="Promeni temu"></button></div></div><p>Ažurirano %s · %d vesti%s</p></header>%s
 %s<div class="chips">%s</div>%s</main><script>%s</script></body></html>""" % (
         CSS, now.strftime("%d.%m.%Y. %H:%M"), len(items), " · sve vesti" if show_all else "",
         fail, render_summary(items), chips, rows or "<p>Nema vesti.</p>", JS)
