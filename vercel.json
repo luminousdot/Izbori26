@@ -1,0 +1,4 @@
+{
+  "functions": { "api/index.py": { "includeFiles": "izbori.py", "maxDuration": 30 } },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}

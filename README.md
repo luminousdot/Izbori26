@@ -15,6 +15,16 @@ python3 izbori.py --all     # every item, without the election filter
 
 To change the election keywords, edit `KEYWORDS` at the top of `izbori.py`.
 
+## On your phone (Vercel)
+
+1. Go to https://vercel.com/new and sign in with GitHub.
+2. Import `luminousdot/Izbori26`. Leave every setting as it is and press **Deploy**.
+3. Open the `….vercel.app` link on your phone. Add `?all` to the link to see every item.
+
+The page is rebuilt from the feeds at most every 2 minutes and reloads itself every 5.
+The link is public, but nobody will find it unless you share it.
+Files: `api/index.py` and `vercel.json`.
+
 ## Sources (RSS, all checked working on 2026-10-25)
 
 | Outlet | Feed |
