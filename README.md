@@ -26,8 +26,9 @@ Other countries' elections (e.g. Bulgaria) are filtered out: see `EXCLUDE` in `i
 
 Above the news, **Pregled po satima** sums up each hour in six small widgets with a big number: turnout in
 Beograd, the diaspora, Niš, Novi Sad and all of Serbia, plus irregularities. The numbers are taken from the articles
-(each linked) and never estimated, so the summary is only as complete as the news. To add cities or words, edit `CITIES`, `TURNOUT`,
-`DIASPORA` and `IRREGULAR` in `izbori.py`.
+(each linked) and never estimated, so the summary is only as complete as the news. The diaspora widget lists Berlin, London and New York
+first, then any other world city in the news. To add cities or words, edit `CITIES`, `WORLD`,
+`TURNOUT`, `DIASPORA` and `IRREGULAR` in `izbori.py`.
 The link is public, but nobody will find it unless you share it.
 Files: `api/index.py` and `vercel.json`.
 

@@ -41,6 +41,10 @@ EXCLUDE = ["Bugar", "Sofij", "Bulgaria", "Sofia", "Radev"]  # "bugarski voz" (vo
 CITIES = ["Beograd", "Novi Sad", "Niš", "Kragujevac", "Subotica", "Zrenjanin", "Pančevo", "Čačak",
           "Kraljevo", "Novi Pazar", "Šabac", "Smederevo", "Leskovac", "Valjevo", "Vranje", "Užice",
           "Kruševac", "Sombor", "Jagodina", "Zaječar", "Pirot", "Loznica", "Sremska Mitrovica"]
+# Diaspora: these come first in the widget, then any other city below that the news mentions.
+WORLD_FIRST = ["Berlin", "London", "New York"]
+WORLD = WORLD_FIRST + ["Beč", "Cirih", "Pariz", "Frankfurt", "Minhen", "Štutgart", "Brisel", "Amsterdam",
+                       "Stokholm", "Oslo", "Toronto", "Čikago", "Moskva", "Ljubljana", "Podgorica"]
 TURNOUT = ["izlaznost", "izašlo", "glasalo", "turnout"]
 DIASPORA = ["dijaspor", "inostranstv", "diaspora", "abroad"]
 IRREGULAR = ["nepravilnost", "incident", "kupovin", "bugarski voz", "pritis", "prijav", "napad",
@@ -82,7 +86,11 @@ def city_re(city):
     return re.compile(r"\b" + r"\w*\s+".join(stems) + r"\w*")
 
 
-CITY_RES = [(c, city_re(c)) for c in CITIES] + [("Srbija", re.compile(r"\bsrbij\w*"))]
+WORLD_SPECIAL = {"New York": r"\b(?:nju\s*jork|new\s+york)\w*", "Beč": r"\bbeč(?!ej)\w*",  # not Bečej
+                 "Cirih": r"\b(?:cirih|zürich|zurich)\w*"}
+WORLD_RES = [(c, re.compile(WORLD_SPECIAL[c]) if c in WORLD_SPECIAL else city_re(c)) for c in WORLD]
+CITY_RES = [(c, city_re(c)) for c in CITIES] + WORLD_RES + [
+    ("Srbija", re.compile(r"\bsrbij\w*")), ("Dijaspora", re.compile(r"\b(?:dijaspor|inostranstv|diaspora|abroad)\w*"))]
 PATTERN, EXCLUDE_PATTERN = words(KEYWORDS), words(EXCLUDE)
 TURNOUT_P, DIASPORA_P, IRREGULAR_P = words(TURNOUT), words(DIASPORA), words(IRREGULAR)
 PERCENT = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|odsto|posto|procen\w*)")
@@ -158,7 +166,11 @@ def pct(text):  # first percentage: "18,2 odsto" -> "18,2%"
     return re.search(r"\d+(?:[.,]\d+)?", PERCENT.search(text).group()).group() + "%"
 
 
-def places(l):
+# "u Bečeju", "у Врању": some place that is not in the lists, so not a figure for all of Serbia
+OTHER_PLACE = re.compile(r"\b[uUуУ]\s+[A-ZČĆŠŽĐА-ЯЂЈЉЊЋЏ][a-zčćšžđа-яђјљњћџ]")
+
+
+def places(l, sent=""):
     """[(place, "31,2%")] for each city in the sentence ("Beograd 35%, Niš 31%"), else [("Srbija", ...)]."""
     hits = sorted((m.start(), c) for c, r in CITY_RES for m in [r.search(l)] if m)
     out = []
@@ -169,7 +181,7 @@ def places(l):
             seg = l[:end]
         if PERCENT.search(seg):
             out.append((c, pct(seg)))
-    return out or [("Srbija", pct(l))]
+    return out or ([] if OTHER_PLACE.search(sent) else [("Srbija", pct(l))])
 
 
 def summarize(items):
@@ -193,10 +205,7 @@ def summarize(items):
             turnout, prev_turnout = TURNOUT_P.search(n) or prev_turnout, bool(TURNOUT_P.search(n))
             if not PERCENT.search(l) or len(sent) > 300 or not (turnout or DIASPORA_P.search(n)):
                 continue
-            if DIASPORA_P.search(n):
-                found = [("Dijaspora", pct(l))]
-            else:
-                found = places(l)
+            found = places(l, sent)
             # "do 16 sati" / "do 16h" / "do 16 časova": the figure belongs to 16:00, not to when the
             # article (often a live blog opened in the morning) was first published
             m = re.search(r"\bdo\s+(\d{1,2})(?:[.:]00)?\s*(?:h\b|sat|čas)", l)
@@ -208,7 +217,8 @@ def summarize(items):
                 if (place, value) in h["seen"]:  # same figure only once per hour
                     continue
                 h["seen"].add((place, value))
-                h["dijaspora" if place == "Dijaspora" else "grad"].append((place, sent, it, value, when))
+                abroad = place == "Dijaspora" or place in WORLD
+                h["dijaspora" if abroad else "grad"].append((place, sent, it, value, when))
         if IRREGULAR_P.search(norm(it["title"] + " " + it["snippet"])):
             bucket(pub)["nepr"].append(it)
     return sorted(hours.items(), reverse=True)
@@ -260,7 +270,8 @@ padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
 .ws{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
 .w{border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0}
 .sum h4{margin:0;font-size:.68rem;line-height:1.25;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);
-overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400}.big.old{opacity:.55}
+overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400}.big.old{opacity:.55}.w:has(.list) .small{-webkit-line-clamp:unset;display:block}
+.list{display:block;margin-top:2px}
 .big{font-size:1.7rem;font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
 .small{font-size:.78rem;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:5;
 -webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.sum a{color:var(--fg)}
@@ -297,6 +308,15 @@ def render_summary(items):
         when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % rows[0][4].strftime("%H:%M")
         return rows[0][3], when + "<br>" + links, old
 
+    def world(cell):  # big number: the first place (see world_order), named in the text below
+        rows, old = cell
+        if not rows:
+            return "—", ""
+        name = {"Dijaspora": "Ukupno"}
+        links = "<br>".join(link(it, "%s %s" % (e(name.get(p, p)), val)) for p, _, it, val, _ in rows)
+        when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % max(r[4] for r in rows).strftime("%H:%M")
+        return rows[0][3], '%s<span class="list">%s</span>' % (when, links), old
+
     def span(h):
         return "%s–%02d:00 h" % (h.strftime("%H:00"), (h.hour + 1) % 24)
 
@@ -304,13 +324,20 @@ def render_summary(items):
     hours = [(h, d) for h, d in summarize(items) if d["grad"] or d["dijaspora"] or d["nepr"]]
 
     # An hour without a new figure shows the last known one, so a widget is never empty.
-    metrics = {"dijaspora": lambda d: d["dijaspora"]}
+    metrics = {}
     for city in ("Beograd", "Niš", "Novi Sad", "Srbija"):
         metrics[city] = lambda d, c=city: [r for r in d["grad"] if r[0] == c]
-    last, cells, nepr_total = {}, {}, 0
+    def world_order(r):  # overall figure, then Berlin, London, New York, then the rest, newest first
+        rank = 0 if r[0] == "Dijaspora" else 1 + WORLD_FIRST.index(r[0]) if r[0] in WORLD_FIRST else 9
+        return rank, -r[4].timestamp()
+
+    last, cells, nepr_total, abroad = {}, {}, 0, {}
     for h, d in reversed(hours):  # oldest first
         nepr_total += len(d["nepr"])
-        cells[h] = {"nepr_total": nepr_total}
+        for r in reversed(d["dijaspora"]):  # newest figure per place wins
+            abroad[r[0]] = r
+        cells[h] = {"nepr_total": nepr_total,
+                    "world": (sorted(abroad.values(), key=world_order), not d["dijaspora"])}
         for m, rows_of in metrics.items():
             rows = rows_of(d)
             cells[h][m] = (rows, False) if rows else (last.get(m, []), True)
@@ -332,7 +359,7 @@ def render_summary(items):
         blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
             widget("Izlaznost Beograd", *turnout(c["Beograd"])),
-            widget("Procenat izlaznosti u dijaspori", *turnout(c["dijaspora"])),
+            widget("Izlaznost dijaspora", *world(c["world"])),
             widget("Nepravilnosti", len(nepr), nepr_txt),
             "".join(widget("Izlaznost " + label, *turnout(c[city]))
                     for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")])))
