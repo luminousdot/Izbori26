@@ -24,6 +24,7 @@ FEEDS = [
     ("Mašina", "https://www.masina.rs/feed/"),
     ("Južne vesti", "https://www.juznevesti.com/feed/"),  # Niš and the south
     ("Nedeljnik", "https://www.nedeljnik.rs/feed/"),
+    ("021", "https://www.021.rs/rss"),  # Novi Sad
 ]
 
 # Edit freely. Matched at the start of a word, ignoring case, Cyrillic/Latin and č/ć/š/ž/đ.
@@ -49,6 +50,7 @@ WORLD = WORLD_FIRST + ["Beč", "Cirih", "Pariz", "Frankfurt", "Minhen", "Štutga
 TURNOUT = ["izlaznost", "izašlo", "glasalo", "turnout"]
 DIASPORA = ["dijaspor", "inostranstv", "diaspora", "abroad"]
 IRREGULAR = ["nepravilnost", "incident", "kupovin", "bugarski voz", "pritis", "prijav", "napad",
+             "paralelni spis", "paralelne spis", "dupli spis", "duplim spis", "zastraš", "maltretir", "sukob", "tuča", "tuči",
              "irregularit", "fraud"]
 
 # Show only news published after this (25 Oct 2026, 06:00 Belgrade time = UTC+1 after DST ends).
