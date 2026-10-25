@@ -315,7 +315,7 @@ padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
 .sum h4{margin:0;font-size:.68rem;line-height:1.25;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);
 overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400}.big.old{opacity:.55}.w:has(.list) .small{-webkit-line-clamp:unset;display:block}
 .list{display:block;margin-top:2px}
-.sub{grid-column:1/-1;margin:6px 0 0;font-size:.8rem;color:var(--muted);font-weight:600}
+.sub{grid-column:1/-1;margin:6px 0 0;font-size:.8rem;color:var(--muted);font-weight:600}.sub:first-child{margin:0}
 [data-dialog]{cursor:pointer}[data-dialog]:hover{border-color:var(--accent)}
 .more{display:block;margin-top:4px;color:var(--accent);font-weight:600}
 dialog{width:calc(100% - 32px);max-width:640px;max-height:85vh;padding:0;border:1px solid var(--line);
@@ -427,17 +427,17 @@ def render_summary(items):
                                                 " · +%d još" % (len(nepr) - 1) if len(nepr) > 1 else "")
         else:
             nepr_txt = "Ukupno od %s: %d" % (SINCE.strftime("%H:%M"), c["nepr_total"])
-        rest = "".join(widget("Izlaznost " + e(cell[0][0][0]), *turnout(cell)) for cell in c["others"])
+        rest = "".join(widget(e(cell[0][0][0]), *turnout(cell)) for cell in c["others"])
         if rest:
             rest = '<h5 class="sub">Ostali gradovi</h5>' + rest
-        blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s%s%s</div></details>' % (
+        blocks.append('<details%s><summary>%s</summary><div class="ws"><h5 class="sub">Izlaznost</h5>%s%s%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
-            widget("Izlaznost Beograd", *turnout(c["Beograd"])),
-            widget("Izlaznost dijaspora", *world(c["world"])),
+            widget("Beograd", *turnout(c["Beograd"])),
+            widget("Dijaspora", *world(c["world"])),
             widget("Nepravilnosti", len(nepr), nepr_txt + '<span class="more">Sve nepravilnosti ›</span>',
                    attrs=' data-dialog="nepr" role="button" tabindex="0"'),
-            "".join(widget("Izlaznost " + label, *turnout(c[city]))
-                    for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")]),
+            "".join(widget(label, *turnout(c[city]))
+                    for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("Cela Srbija", "Srbija")]),
             rest))
     out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
     if len(blocks) > 1:
