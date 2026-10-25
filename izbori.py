@@ -243,11 +243,16 @@ def fmt_time(dt, today):
     return d.strftime("%H:%M") if d.date() == today else d.strftime("%d.%m. %H:%M")
 
 
+DARK = "--bg:#121212;--fg:#ececec;--muted:#9a9a9a;--line:#2a2a2a;--card:#1b1b1b;--accent:#f87171;--chip:#242424"
+# Follows the phone's setting until the header button picks light or dark (remembered in the browser).
 CSS = """
 :root{--bg:#fafaf9;--fg:#1c1917;--muted:#78716c;--line:#e7e5e4;--card:#fff;--accent:#b91c1c;--chip:#f5f5f4}
-@media (prefers-color-scheme:dark){:root{--bg:#121212;--fg:#ececec;--muted:#9a9a9a;--line:#2a2a2a;
---card:#1b1b1b;--accent:#f87171;--chip:#242424}}
-*{box-sizing:border-box}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){%s}}
+:root[data-theme=dark]{%s}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#theme{font:inherit;font-size:1.1rem;line-height:1;width:40px;height:40px;border-radius:999px;cursor:pointer;
+border:1px solid var(--line);background:var(--chip);color:var(--fg)}
+""" % (DARK, DARK) + """*{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,
 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 main{max-width:760px;margin:0 auto;padding:16px}
@@ -279,6 +284,11 @@ overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400
 """
 
 JS = """
+const root=document.documentElement,tb=document.getElementById('theme');
+const isDark=()=>(root.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';
+const icon=()=>{tb.textContent=isDark()?'\u2600\uFE0E':'\u263E';tb.title=isDark()?'Svetla tema':'Tamna tema';};
+icon();tb.onclick=()=>{root.dataset.theme=isDark()?'light':'dark';
+ try{localStorage.setItem('theme',root.dataset.theme)}catch(e){};icon();};
 document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.chips button').forEach(x=>x.classList.toggle('on',x===b));
  const o=b.dataset.o;document.querySelectorAll('article').forEach(a=>
@@ -385,8 +395,10 @@ def render(items, failed, show_all):
     fail = '<p class="fail">%s</p>' % " · ".join(e(n) + ": failed" for n in failed) if failed else ""
     return """<!doctype html><html lang="sr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="300"><title>Izbori 2026</title><style>%s</style></head>
-<body><main><header><h1>Izbori 2026</h1><p>Ažurirano %s · %d vesti%s</p></header>%s
+<meta http-equiv="refresh" content="300"><title>Izbori 2026</title><style>%s</style>
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
+<body><main><header><div class="top"><h1>Izbori 2026</h1>
+<button id="theme" type="button" aria-label="Promeni temu"></button></div><p>Ažurirano %s · %d vesti%s</p></header>%s
 %s<div class="chips">%s</div>%s</main><script>%s</script></body></html>""" % (
         CSS, now.strftime("%d.%m.%Y. %H:%M"), len(items), " · sve vesti" if show_all else "",
         fail, render_summary(items), chips, rows or "<p>Nema vesti.</p>", JS)
