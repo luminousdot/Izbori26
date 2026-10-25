@@ -25,8 +25,8 @@ Shows only news from 25 Oct, 06:00 onwards (`SINCE` in `izbori.py`). The page is
 Other countries' elections (e.g. Bulgaria) are filtered out: see `EXCLUDE` in `izbori.py`.
 
 Above the news, **Pregled po satima** sums up each hour: turnout by city, turnout in the diaspora, and
-irregularities. It only quotes sentences from the articles (with a link to each) and never estimates
-anything, so it is only as complete as the news. To add cities or words, edit `CITIES`, `TURNOUT`,
+irregularities, as three small widgets with a big number. The numbers are taken from the articles
+(each linked) and never estimated, so the summary is only as complete as the news. To add cities or words, edit `CITIES`, `TURNOUT`,
 `DIASPORA` and `IRREGULAR` in `izbori.py`.
 The link is public, but nobody will find it unless you share it.
 Files: `api/index.py` and `vercel.json`.

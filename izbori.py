@@ -213,8 +213,13 @@ article p{margin:0;color:var(--muted);font-size:.9rem;display:-webkit-box;-webki
 .sum{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;background:var(--card);
 padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
 .sum details{border-top:1px solid var(--line);padding:6px 0}.sum summary{cursor:pointer;font-weight:600}
-.sum h4{margin:8px 0 2px;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.sum ul{margin:0;padding-left:18px;font-size:.9rem}.sum li{margin:3px 0}.sum a{color:var(--fg)}
+.ws{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.w{border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0}
+.sum h4{margin:0;font-size:.68rem;line-height:1.25;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);
+overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400}
+.big{font-size:1.7rem;font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
+.small{font-size:.78rem;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:4;
+-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.sum a{color:var(--fg)}
 .sum .wait{color:var(--muted);font-size:.9rem;margin:2px 0 6px}.sum .note{color:var(--muted);font-size:.75rem;margin:6px 0 0}
 """
 
@@ -229,11 +234,22 @@ document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{
 def render_summary(items):
     e = html.escape
 
-    def src(it):
-        return ' <a href="%s" target="_blank" rel="noopener">%s</a>' % (e(it["link"]), e(it["outlet"]))
+    def link(it, txt):
+        return '<a href="%s" target="_blank" rel="noopener">%s</a>' % (e(it["link"]), txt)
 
-    def block(title, lis):  # empty parts are left out
-        return "<h4>%s</h4><ul>%s</ul>" % (title, "".join(lis)) if lis else ""
+    def pct(sent):  # "18,2 odsto" -> "18,2%"
+        return re.search(r"\d+(?:[.,]\d+)?", PERCENT.search(sent).group()).group() + "%"
+
+    def widget(label, big, small):
+        return '<div class="w"><h4>%s</h4><div class="big%s">%s</div><div class="small">%s</div></div>' % (
+            label, " zero" if big in ("—", 0) else "", big, small or "Čekamo podatke")
+
+    def turnout(rows, by_city=True):  # big number: the national figure if there is one, else the first
+        if not rows:
+            return "—", ""
+        first = next((r for r in rows if r[0] == "Srbija"), rows[0])
+        return pct(first[1]), " · ".join(link(it, "%s %s" % (e(lab), pct(sent)) if by_city else
+                                              "%s %s" % (pct(sent), e(it["outlet"]))) for lab, sent, it in rows)
 
     def span(h):
         return "%s–%02d:00 h" % (h.strftime("%H:00"), (h.hour + 1) % 24)
@@ -246,18 +262,15 @@ def render_summary(items):
         out.append('<p class="wait">Čekamo nove podatke za %s, još uvek ih nema.%s</p>' % (
             span(now), " Ispod su poslednji podaci." if hours else ""))
     for n, (h, d) in enumerate(hours):
-        lines = {}
-        for k in ("grad", "dijaspora"):
-            lines[k] = ['<li><b>%s:</b> „%s“ ·%s</li>' % (
-                e(lab), PERCENT.sub(lambda m: "<b>%s</b>" % m.group(), e(sent)), src(it))
-                for lab, sent, it in d[k]]
-        nepr = ['<li>%s ·%s</li>' % (e(it["title"]), src(it)) for it in d["nepr"]]
-        out.append('<details%s><summary>%s</summary>%s%s%s</details>' % (
+        nepr = d["nepr"]
+        nepr_txt = link(nepr[0], e(nepr[0]["title"])) + (
+            " · +%d još" % (len(nepr) - 1) if len(nepr) > 1 else "") if nepr else ""
+        out.append('<details%s><summary>%s</summary><div class="ws">%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
-            block("Procenat izlaznosti po gradovima", lines["grad"]),
-            block("Procenat izlaznosti u dijaspori", lines["dijaspora"]),
-            block("Nepravilnosti (%d)" % len(nepr), nepr)))
-    return ('<section class="sum"><h2>Pregled po satima</h2>%s<p class="note">Rečenice iz vesti, '
+            widget("Procenat izlaznosti po gradovima", *turnout(d["grad"])),
+            widget("Procenat izlaznosti u dijaspori", *turnout(d["dijaspora"], False)),
+            widget("Nepravilnosti", len(nepr), nepr_txt)))
+    return ('<section class="sum"><h2>Pregled po satima</h2>%s<p class="note">Brojevi iz vesti, '
             'bez procena. Zvanični podaci: RIK, CRTA, CeSID.</p></section>') % (
         "".join(out))
 
