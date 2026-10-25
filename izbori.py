@@ -173,13 +173,19 @@ def places(l):
 
 
 def summarize(items):
-    """{hour: {"grad": [(place, sentence, item, "31,2%")], "dijaspora": [...], "nepr": [item]}}, newest first."""
+    """{hour: {"grad": [(place, sentence, item, "31,2%", time)], "dijaspora": [...], "nepr": [item]}},
+    newest first."""
     hours = {}
+
+    def bucket(t):
+        return hours.setdefault(t.replace(minute=0, second=0, microsecond=0),
+                                {"grad": [], "dijaspora": [], "nepr": [], "seen": set()})
+
+    now = local(datetime.now(timezone.utc))
     for it in items:
         if not relevant(it):
             continue
-        h = hours.setdefault(local(it["when"]).replace(minute=0, second=0, microsecond=0),
-                             {"grad": [], "dijaspora": [], "nepr": [], "seen": set()})
+        pub = local(it["when"])
         prev_turnout = False
         for sent in re.split(r"(?<=[.!?])\s+", it["title"] + ". " + it["body"]):
             n, l = norm(sent), lat(sent)  # diacritics kept for cities, so "nisu" is not read as Niš
@@ -191,13 +197,20 @@ def summarize(items):
                 found = [("Dijaspora", pct(l))]
             else:
                 found = places(l)
+            # "do 16 sati" / "do 16h" / "do 16 časova": the figure belongs to 16:00, not to when the
+            # article (often a live blog opened in the morning) was first published
+            m = re.search(r"\bdo\s+(\d{1,2})(?:[.:]00)?\s*(?:h\b|sat|čas)", l)
+            when = pub.replace(hour=int(m.group(1)), minute=0) if m and int(m.group(1)) < 24 else pub
+            if when > now:
+                when = pub
+            h = bucket(when)
             for place, value in found:
                 if (place, value) in h["seen"]:  # same figure only once per hour
                     continue
                 h["seen"].add((place, value))
-                h["dijaspora" if place == "Dijaspora" else "grad"].append((place, sent, it, value))
+                h["dijaspora" if place == "Dijaspora" else "grad"].append((place, sent, it, value, when))
         if IRREGULAR_P.search(norm(it["title"] + " " + it["snippet"])):
-            h["nepr"].append(it)
+            bucket(pub)["nepr"].append(it)
     return sorted(hours.items(), reverse=True)
 
 
@@ -282,8 +295,8 @@ def render_summary(items):
             return "—", ""
         first = next((r for r in rows if r[0] == "Srbija"), rows[0])
         links = " · ".join(link(it, "%s %s" % (e(lab), val) if by_city else
-                                "%s %s" % (val, e(it["outlet"]))) for lab, sent, it, val in rows)
-        when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % hm(first[2])
+                                "%s %s" % (val, e(it["outlet"]))) for lab, sent, it, val, _ in rows)
+        when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % first[4].strftime("%H:%M")
         return first[3], when + "<br>" + links, old
 
     def span(h):
