@@ -289,15 +289,13 @@ def render_summary(items):
         return '<div class="w"><h4>%s</h4><div class="big%s">%s</div><div class="small">%s</div></div>' % (
             label, cls, big, small or "Čekamo podatke")
 
-    def turnout(cell, by_city=True):  # big number: the national figure if there is one, else the first
+    def turnout(cell):  # big number: the latest figure; below it, every source
         rows, old = cell
         if not rows:
             return "—", ""
-        first = next((r for r in rows if r[0] == "Srbija"), rows[0])
-        links = " · ".join(link(it, "%s %s" % (e(lab), val) if by_city else
-                                "%s %s" % (val, e(it["outlet"]))) for lab, sent, it, val, _ in rows)
-        when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % first[4].strftime("%H:%M")
-        return first[3], when + "<br>" + links, old
+        links = " · ".join(link(it, "%s %s" % (val, e(it["outlet"]))) for _, _, it, val, _ in rows)
+        when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % rows[0][4].strftime("%H:%M")
+        return rows[0][3], when + "<br>" + links, old
 
     def span(h):
         return "%s–%02d:00 h" % (h.strftime("%H:00"), (h.hour + 1) % 24)
@@ -306,8 +304,8 @@ def render_summary(items):
     hours = [(h, d) for h, d in summarize(items) if d["grad"] or d["dijaspora"] or d["nepr"]]
 
     # An hour without a new figure shows the last known one, so a widget is never empty.
-    metrics = {"grad": lambda d: d["grad"], "dijaspora": lambda d: d["dijaspora"]}
-    for city in ("Niš", "Novi Sad", "Srbija"):
+    metrics = {"dijaspora": lambda d: d["dijaspora"]}
+    for city in ("Beograd", "Niš", "Novi Sad", "Srbija"):
         metrics[city] = lambda d, c=city: [r for r in d["grad"] if r[0] == c]
     last, cells, nepr_total = {}, {}, 0
     for h, d in reversed(hours):  # oldest first
@@ -333,10 +331,10 @@ def render_summary(items):
             nepr_txt = "Ukupno od %s: %d" % (SINCE.strftime("%H:%M"), c["nepr_total"])
         blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
-            widget("Procenat izlaznosti po gradovima", *turnout(c["grad"])),
-            widget("Procenat izlaznosti u dijaspori", *turnout(c["dijaspora"], False)),
+            widget("Izlaznost Beograd", *turnout(c["Beograd"])),
+            widget("Procenat izlaznosti u dijaspori", *turnout(c["dijaspora"])),
             widget("Nepravilnosti", len(nepr), nepr_txt),
-            "".join(widget("Izlaznost " + label, *turnout(c[city], False))
+            "".join(widget("Izlaznost " + label, *turnout(c[city]))
                     for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")])))
     out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
     if len(blocks) > 1:
