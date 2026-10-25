@@ -46,5 +46,6 @@ Files: `api/index.py` and `vercel.json`.
 | Danas | https://www.danas.rs/feed/ |
 | Mašina | https://www.masina.rs/feed/ |
 | Južne vesti (Niš) | https://www.juznevesti.com/feed/ (added 25 Oct, not yet checked) |
+| Nedeljnik | https://www.nedeljnik.rs/feed/ (added 25 Oct, not yet checked) |
 
 birn.rs has no feed. No separate feed found for TV Nova / Nova S; nova.rs covers it.

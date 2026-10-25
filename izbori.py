@@ -23,6 +23,7 @@ FEEDS = [
     ("Danas", "https://www.danas.rs/feed/"),
     ("Mašina", "https://www.masina.rs/feed/"),
     ("Južne vesti", "https://www.juznevesti.com/feed/"),  # Niš and the south
+    ("Nedeljnik", "https://www.nedeljnik.rs/feed/"),
 ]
 
 # Edit freely. Matched at the start of a word, ignoring case, Cyrillic/Latin and č/ć/š/ž/đ.
@@ -89,12 +90,15 @@ def city_re(city):
 WORLD_SPECIAL = {"New York": r"\b(?:nju\s*jork|new\s+york)\w*", "Beč": r"\bbeč(?!ej)\w*",  # not Bečej
                  "Cirih": r"\b(?:cirih|zürich|zurich)\w*"}
 WORLD_RES = [(c, re.compile(WORLD_SPECIAL[c]) if c in WORLD_SPECIAL else city_re(c)) for c in WORLD]
-CITY_RES = [(c, city_re(c)) for c in CITIES] + WORLD_RES + [
-    ("Srbija", re.compile(r"\bsrbij\w*")), ("Dijaspora", re.compile(r"\b(?:dijaspor|inostranstv|diaspora|abroad)\w*"))]
+CITY_RES = [(c, re.compile(r"\b(?:beograd|prestonic|glavnom gradu)\w*") if c == "Beograd" else city_re(c))
+            for c in CITIES] + WORLD_RES + [
+    ("Dijaspora", re.compile(r"\b(?:dijaspor\w*|inostranstv\w*|diaspora|abroad|(?:iz)?van\s+(?:zemlje|srbije))")),
+    ("Srbija", re.compile(r"\bsrbij\w*"))]
 PATTERN, EXCLUDE_PATTERN = words(KEYWORDS), words(EXCLUDE)
 TURNOUT_P, DIASPORA_P, IRREGULAR_P = words(TURNOUT), words(DIASPORA), words(IRREGULAR)
 PERCENT = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|odsto|posto|procen\w*)")
 CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
+BLOCK_END = re.compile(r"(?i)</(?:p|li|h\d|div|td)>|<br\s*/?>")  # a paragraph or list line ends a sentence
 
 try:
     from zoneinfo import ZoneInfo
@@ -130,7 +134,7 @@ def fetch(feed):
             "outlet": name, "title": plain(text(it, "title")), "link": text(it, "link"),
             "snippet": plain(text(it, "description"))[:240], "when": when,
             # full text, only searched for the summary, never shown or saved
-            "body": plain(text(it, "description") + " " + text(it, CONTENT))[:5000],
+            "body": plain(BLOCK_END.sub(". ", text(it, "description") + " " + text(it, CONTENT)))[:5000],
             "cats": [norm(c.text or "").strip() for c in it.findall("category")],
         })
     return items
@@ -202,10 +206,14 @@ def summarize(items):
         for sent in re.split(r"(?<=[.!?])\s+", it["title"] + ". " + it["body"]):
             n, l = norm(sent), lat(sent)  # diacritics kept for cities, so "nisu" is not read as Niš
             # a turnout figure: the sentence, or the one before it, talks about turnout
-            turnout, prev_turnout = TURNOUT_P.search(n) or prev_turnout, bool(TURNOUT_P.search(n))
-            if not PERCENT.search(l) or len(sent) > 300 or not (turnout or DIASPORA_P.search(n)):
+            # (and it carries on through a list: "Izlaznost po gradovima:" / "Beograd 58%" / "Niš 61%")
+            own = TURNOUT_P.search(n) or DIASPORA_P.search(n)
+            found = places(l, sent) if PERCENT.search(l) and len(sent) <= 400 and (own or prev_turnout) else []
+            if not own:  # borrowed context: only figures that name a place ("SNS ima 40%" is not turnout)
+                found = [f for f in found if f[0] != "Srbija" or "srbij" in l]
+            prev_turnout = bool(TURNOUT_P.search(n) or found)
+            if not found:
                 continue
-            found = places(l, sent)
             # "do 16 sati" / "do 16h" / "do 16 časova": the figure belongs to 16:00, not to when the
             # article (often a live blog opened in the morning) was first published
             m = re.search(r"\bdo\s+(\d{1,2})(?:[.:]00)?\s*(?:h\b|sat|čas)", l)
@@ -277,6 +285,17 @@ padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
 .sum h4{margin:0;font-size:.68rem;line-height:1.25;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);
 overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400}.big.old{opacity:.55}.w:has(.list) .small{-webkit-line-clamp:unset;display:block}
 .list{display:block;margin-top:2px}
+[data-dialog]{cursor:pointer}[data-dialog]:hover{border-color:var(--accent)}
+.more{display:block;margin-top:4px;color:var(--accent);font-weight:600}
+dialog{width:calc(100% - 32px);max-width:640px;max-height:85vh;padding:0;border:1px solid var(--line);
+border-radius:12px;background:var(--card);color:var(--fg)}dialog::backdrop{background:rgba(0,0,0,.55)}
+.dh{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;gap:8px;
+padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line)}.dh h3{margin:0;font-size:1.05rem}
+.x{font:inherit;font-size:1.4rem;line-height:1;width:36px;height:36px;border-radius:999px;cursor:pointer;
+border:1px solid var(--line);background:var(--chip);color:var(--fg)}
+dialog ul{list-style:none;margin:0;padding:4px 16px 12px}dialog li{padding:10px 0;border-bottom:1px solid var(--line)}
+dialog li:last-child{border-bottom:0}dialog li a{display:block;color:var(--fg);font-weight:600;margin:2px 0}
+dialog li p{margin:0;color:var(--muted);font-size:.9rem}
 .big{font-size:1.7rem;font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
 .small{font-size:.78rem;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:5;
 -webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.sum a{color:var(--fg)}
@@ -287,6 +306,11 @@ JS = """
 const root=document.documentElement,tb=document.getElementById('theme');
 const isDark=()=>(root.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';
 const icon=()=>{tb.textContent=isDark()?'\u2600\uFE0E':'\u263E';tb.title=isDark()?'Svetla tema':'Tamna tema';};
+document.querySelectorAll('[data-dialog]').forEach(w=>{const d=document.getElementById(w.dataset.dialog);
+ const open=ev=>{if(!ev.target.closest('a'))d.showModal();};w.onclick=open;
+ w.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();open(ev);}};});
+document.querySelectorAll('dialog').forEach(d=>{d.onclick=ev=>{if(ev.target===d)d.close();};
+ d.querySelector('.x').onclick=()=>d.close();});
 icon();tb.onclick=()=>{root.dataset.theme=isDark()?'light':'dark';
  try{localStorage.setItem('theme',root.dataset.theme)}catch(e){};icon();};
 document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{
@@ -305,10 +329,10 @@ def render_summary(items):
     def hm(it):
         return local(it["when"]).strftime("%H:%M")
 
-    def widget(label, big, small, old=False):
+    def widget(label, big, small, old=False, attrs=""):
         cls = " zero" if big in ("—", 0) else " old" if old else ""
-        return '<div class="w"><h4>%s</h4><div class="big%s">%s</div><div class="small">%s</div></div>' % (
-            label, cls, big, small or "Čekamo podatke")
+        return '<div class="w"%s><h4>%s</h4><div class="big%s">%s</div><div class="small">%s</div></div>' % (
+            attrs, label, cls, big, small or "Čekamo podatke")
 
     def turnout(cell):  # big number: the latest figure; below it, every source
         rows, old = cell
@@ -370,15 +394,27 @@ def render_summary(items):
             " open" if n == 0 else "", span(h),
             widget("Izlaznost Beograd", *turnout(c["Beograd"])),
             widget("Izlaznost dijaspora", *world(c["world"])),
-            widget("Nepravilnosti", len(nepr), nepr_txt),
+            widget("Nepravilnosti", len(nepr), nepr_txt + '<span class="more">Sve nepravilnosti ›</span>',
+                   attrs=' data-dialog="nepr" role="button" tabindex="0"'),
             "".join(widget("Izlaznost " + label, *turnout(c[city]))
                     for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")])))
     out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
     if len(blocks) > 1:
         out.append('<details class="older"><summary>Raniji podaci</summary>%s</details>' % "".join(blocks[1:]))
+    seen, all_nepr = set(), []
+    for h, d in hours:  # newest first
+        for it in d["nepr"]:
+            if it["link"] not in seen:
+                seen.add(it["link"])
+                all_nepr.append(it)
+    dialog = ('<dialog id="nepr"><div class="dh"><h3>Nepravilnosti od %s (%d)</h3>'
+              '<button type="button" class="x" aria-label="Zatvori">×</button></div><ul>%s</ul></dialog>') % (
+        SINCE.strftime("%H:%M"), len(all_nepr), "".join(
+            '<li><div class="meta"><b>%s</b> · %s</div>%s<p>%s</p></li>' % (
+                e(it["outlet"]), hm(it), link(it, e(it["title"])), e(it["snippet"])) for it in all_nepr)
+        or "<li>Još nema prijavljenih nepravilnosti u vestima.</li>")
     return ('<section class="sum"><h2>Pregled po satima</h2>%s<p class="note">Brojevi iz vesti, '
-            'bez procena. Zvanični podaci: RIK, CRTA, CeSID.</p></section>') % (
-        "".join(out))
+            'bez procena. Zvanični podaci: RIK, CRTA, CeSID.</p></section>%s') % ("".join(out), dialog)
 
 
 def render(items, failed, show_all):
