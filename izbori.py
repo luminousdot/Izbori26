@@ -23,8 +23,6 @@ FEEDS = [
     ("Danas", "https://www.danas.rs/feed/"),
     ("Mašina", "https://www.masina.rs/feed/"),
     ("Južne vesti", "https://www.juznevesti.com/feed/"),  # Niš and the south
-    ("Nedeljnik", "https://www.nedeljnik.rs/feed/"),
-    ("021", "https://www.021.rs/rss"),  # Novi Sad
 ]
 
 # Edit freely. Matched at the start of a word, ignoring case, Cyrillic/Latin and č/ć/š/ž/đ.
