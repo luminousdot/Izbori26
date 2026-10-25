@@ -8,7 +8,7 @@
 import html, re, sys, time, unicodedata, urllib.request, webbrowser
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
@@ -35,6 +35,9 @@ KEYWORDS = [
 DROP_CATEGORIES = ["svet"]  # nova.rs "Svet" = world news (e.g. Bulgaria's elections)
 # Items mentioning these are dropped (other countries' elections). Same matching as KEYWORDS.
 EXCLUDE = ["Bugar", "Sofij", "Bulgaria", "Sofia", "Radev"]
+
+# Show only news published after this (25 Oct 2026, 06:00 Belgrade time = UTC+1 after DST ends).
+SINCE = datetime(2026, 10, 25, 6, 0, tzinfo=timezone(timedelta(hours=1)))
 
 UA = "IzboriReader/1.0 (personal use)"
 OUT = Path(__file__).resolve().with_name("izbori.html")
@@ -107,10 +110,9 @@ def collect(show_all):
                 failed.append(feed[0])
             else:
                 items += res
-    today = local(datetime.now(timezone.utc)).date()  # election day only
     seen, out = set(), []
     for it in sorted(items, key=lambda i: i["when"], reverse=True):
-        if local(it["when"]).date() != today:
+        if it["when"] < SINCE:
             continue
         if it["link"].startswith("http") and it["link"] not in seen and (show_all or relevant(it)):
             seen.add(it["link"])

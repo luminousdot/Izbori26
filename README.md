@@ -21,7 +21,7 @@ To change the election keywords, edit `KEYWORDS` at the top of `izbori.py`.
 2. Import `luminousdot/Izbori26`. Leave every setting as it is and press **Deploy**.
 3. Open the `….vercel.app` link on your phone. Add `?all` to the link to see every item.
 
-Shows only today's items (Belgrade time). The page is rebuilt from the feeds at most every 2 minutes and reloads itself every 5.
+Shows only news from 25 Oct, 06:00 onwards (`SINCE` in `izbori.py`). The page is rebuilt from the feeds at most every 2 minutes and reloads itself every 5.
 Other countries' elections (e.g. Bulgaria) are filtered out: see `EXCLUDE` in `izbori.py`.
 The link is public, but nobody will find it unless you share it.
 Files: `api/index.py` and `vercel.json`.
