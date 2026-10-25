@@ -33,6 +33,8 @@ KEYWORDS = [
     "election", "vote", "voting", "polling", "ballot",
 ]
 DROP_CATEGORIES = ["svet"]  # nova.rs "Svet" = world news (e.g. Bulgaria's elections)
+# Items mentioning these are dropped (other countries' elections). Same matching as KEYWORDS.
+EXCLUDE = ["Bugar", "Sofij", "Bulgaria", "Sofia", "Radev"]
 
 UA = "IzboriReader/1.0 (personal use)"
 OUT = Path(__file__).resolve().with_name("izbori.html")
@@ -50,6 +52,7 @@ def norm(s):
 
 PATTERN = re.compile("|".join(
     r"\b" + re.escape(norm(k)) + (r"\b" if k.isupper() else "") for k in KEYWORDS))
+EXCLUDE_PATTERN = re.compile("|".join(r"\b" + re.escape(norm(k)) for k in EXCLUDE))
 
 try:
     from zoneinfo import ZoneInfo
@@ -90,9 +93,10 @@ def fetch(feed):
 
 
 def relevant(item):
-    if any(c in DROP_CATEGORIES for c in item["cats"]):
+    t = norm(item["title"] + " " + item["snippet"])
+    if any(c in DROP_CATEGORIES for c in item["cats"]) or EXCLUDE_PATTERN.search(t):
         return False
-    return bool(PATTERN.search(norm(item["title"] + " " + item["snippet"])))
+    return bool(PATTERN.search(t))
 
 
 def collect(show_all):
@@ -103,8 +107,11 @@ def collect(show_all):
                 failed.append(feed[0])
             else:
                 items += res
+    today = local(datetime.now(timezone.utc)).date()  # election day only
     seen, out = set(), []
     for it in sorted(items, key=lambda i: i["when"], reverse=True):
+        if local(it["when"]).date() != today:
+            continue
         if it["link"].startswith("http") and it["link"] not in seen and (show_all or relevant(it)):
             seen.add(it["link"])
             out.append(it)
