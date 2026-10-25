@@ -315,6 +315,7 @@ padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
 .sum h4{margin:0;font-size:.68rem;line-height:1.25;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);
 overflow-wrap:anywhere;hyphens:auto}.big.zero{color:var(--muted);font-weight:400}.big.old{opacity:.55}.w:has(.list) .small{-webkit-line-clamp:unset;display:block}
 .list{display:block;margin-top:2px}
+.sub{grid-column:1/-1;margin:6px 0 0;font-size:.8rem;color:var(--muted);font-weight:600}
 [data-dialog]{cursor:pointer}[data-dialog]:hover{border-color:var(--accent)}
 .more{display:block;margin-top:4px;color:var(--accent);font-weight:600}
 dialog{width:calc(100% - 32px);max-width:640px;max-height:85vh;padding:0;border:1px solid var(--line);
@@ -326,7 +327,7 @@ border:1px solid var(--line);background:var(--chip);color:var(--fg)}
 dialog ul{list-style:none;margin:0;padding:4px 16px 12px}dialog li{padding:10px 0;border-bottom:1px solid var(--line)}
 dialog li:last-child{border-bottom:0}dialog li a{display:block;color:var(--fg);font-weight:600;margin:2px 0}
 dialog li p{margin:0;color:var(--muted);font-size:.9rem}
-.big{font-size:1.7rem;font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
+.big{font-size:clamp(1.25rem,6vw,1.7rem);font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
 .small{font-size:.78rem;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:5;
 -webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.sum a{color:var(--fg)}
 .sum .wait{color:var(--muted);font-size:.9rem;margin:2px 0 6px}.sum .note{color:var(--muted);font-size:.75rem;margin:6px 0 0}
@@ -395,13 +396,19 @@ def render_summary(items):
         rank = 0 if r[0] == "Dijaspora" else 1 + WORLD_FIRST.index(r[0]) if r[0] in WORLD_FIRST else 9
         return rank, -r[4].timestamp()
 
-    last, cells, nepr_total, abroad = {}, {}, 0, {}
+    main = ("Beograd", "Niš", "Novi Sad", "Srbija")
+    last, cells, nepr_total, abroad, others = {}, {}, 0, {}, {}
     for h, d in reversed(hours):  # oldest first
         nepr_total += len(d["nepr"])
         for r in reversed(d["dijaspora"]):  # newest figure per place wins
             abroad[r[0]] = r
+        fresh = {r[0] for r in d["grad"] if r[0] not in main}
+        for r in reversed([r for r in d["grad"] if r[0] not in main]):
+            others[r[0]] = r
         cells[h] = {"nepr_total": nepr_total,
-                    "world": (sorted(abroad.values(), key=world_order), not d["dijaspora"])}
+                    "world": (sorted(abroad.values(), key=world_order), not d["dijaspora"]),
+                    # every other city found so far, A-Z, each with its latest figure
+                    "others": [([r], r[0] not in fresh) for _, r in sorted(others.items(), key=lambda x: norm(x[0]))]}
         for m, rows_of in metrics.items():
             rows = rows_of(d)
             cells[h][m] = (rows, False) if rows else (last.get(m, []), True)
@@ -420,14 +427,18 @@ def render_summary(items):
                                                 " · +%d još" % (len(nepr) - 1) if len(nepr) > 1 else "")
         else:
             nepr_txt = "Ukupno od %s: %d" % (SINCE.strftime("%H:%M"), c["nepr_total"])
-        blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s%s</div></details>' % (
+        rest = "".join(widget("Izlaznost " + e(cell[0][0][0]), *turnout(cell)) for cell in c["others"])
+        if rest:
+            rest = '<h5 class="sub">Ostali gradovi</h5>' + rest
+        blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
             widget("Izlaznost Beograd", *turnout(c["Beograd"])),
             widget("Izlaznost dijaspora", *world(c["world"])),
             widget("Nepravilnosti", len(nepr), nepr_txt + '<span class="more">Sve nepravilnosti ›</span>',
                    attrs=' data-dialog="nepr" role="button" tabindex="0"'),
             "".join(widget("Izlaznost " + label, *turnout(c[city]))
-                    for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")])))
+                    for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("cela Srbija", "Srbija")]),
+            rest))
     out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
     if len(blocks) > 1:
         out.append('<details class="older"><summary>Raniji podaci</summary>%s</details>' % "".join(blocks[1:]))
