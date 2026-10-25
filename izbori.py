@@ -327,7 +327,7 @@ border:1px solid var(--line);background:var(--chip);color:var(--fg)}
 dialog ul{list-style:none;margin:0;padding:4px 16px 12px}dialog li{padding:10px 0;border-bottom:1px solid var(--line)}
 dialog li:last-child{border-bottom:0}dialog li a{display:block;color:var(--fg);font-weight:600;margin:2px 0}
 dialog li p{margin:0;color:var(--muted);font-size:.9rem}
-.big{font-size:clamp(1.25rem,6vw,1.7rem);font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
+.big{font-size:clamp(1.05rem,5vw,1.7rem);letter-spacing:-.02em;font-weight:700;line-height:1.2;margin:4px 0;color:var(--accent)}
 .small{font-size:.78rem;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:5;
 -webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.sum a{color:var(--fg)}
 .sum .wait{color:var(--muted);font-size:.9rem;margin:2px 0 6px}.sum .note{color:var(--muted);font-size:.75rem;margin:6px 0 0}
