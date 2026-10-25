@@ -24,10 +24,10 @@ To change the election keywords, edit `KEYWORDS` at the top of `izbori.py`.
 Shows only news from 25 Oct, 06:00 onwards (`SINCE` in `izbori.py`). The page is rebuilt from the feeds at most every 2 minutes and reloads itself every 5.
 Other countries' elections (e.g. Bulgaria) are filtered out: see `EXCLUDE` in `izbori.py`.
 
-Above the news, **Pregled po satima** sums up each hour in six small widgets with a big number: turnout in
-Beograd, the diaspora, Niš, Novi Sad and all of Serbia, plus irregularities. The numbers are taken from the articles
-(each linked) and never estimated, so the summary is only as complete as the news. The diaspora widget lists Berlin, London and New York
-first, then any other world city in the news. To add cities or words, edit `CITIES`, `WORLD`,
+Above the news, **Pregled po satima** sums up each hour in small widgets with a big number: turnout in
+Beograd, Niš, Novi Sad, all of Serbia and every other city found, plus irregularities. The numbers are taken from the articles
+(each linked) and never estimated, so the summary is only as complete as the news. (The diaspora widget, Berlin/London/New York first, is off
+for now.) To add cities or words, edit `CITIES`, `WORLD`,
 `TURNOUT`, `DIASPORA` and `IRREGULAR` in `izbori.py`.
 The link is public, but nobody will find it unless you share it.
 Files: `api/index.py` and `vercel.json`.

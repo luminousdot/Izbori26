@@ -419,7 +419,7 @@ def render_summary(items):
         return "%s–%02d:00 h" % (h.strftime("%H:00"), (h.hour + 1) % 24)
 
     # only hours with something to show; the newest of them is opened
-    hours = [(h, d) for h, d in summarize(items) if d["grad"] or d["dijaspora"] or d["nepr"]]
+    hours = [(h, d) for h, d in summarize(items) if d["grad"] or d["nepr"]]
 
     # An hour without a new figure shows the last known one, so a widget is never empty.
     metrics = {}
@@ -463,14 +463,13 @@ def render_summary(items):
         rest = "".join(widget(e(cell[0][0][0]), *turnout(cell)) for cell in c["others"])
         if rest:
             rest = '<h5 class="sub">Ostali gradovi</h5>' + rest
-        blocks.append('<details%s><summary>%s</summary><div class="ws"><h5 class="sub">Izlaznost</h5>%s%s%s%s%s</div></details>' % (
+        blocks.append('<details%s><summary>%s</summary><div class="ws"><h5 class="sub">Izlaznost</h5>%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
-            widget("Beograd", *turnout(c["Beograd"])),
-            widget("Dijaspora", *world(c["world"])),
+            "".join(widget(label, *turnout(c[city])) for label, city in
+                    [("Beograd", "Beograd"), ("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("Cela Srbija", "Srbija")]),
+            # the diaspora widget (world(c["world"])) is off for now: no outlet publishes its turnout yet
             widget("Nepravilnosti", len(nepr), nepr_txt + '<span class="more">Sve nepravilnosti ›</span>',
                    attrs=' data-dialog="nepr" role="button" tabindex="0"'),
-            "".join(widget(label, *turnout(c[city]))
-                    for label, city in [("Niš", "Niš"), ("Novi Sad", "Novi Sad"), ("Cela Srbija", "Srbija")]),
             rest))
     out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
     if len(blocks) > 1:
