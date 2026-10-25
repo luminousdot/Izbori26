@@ -212,7 +212,8 @@ article p{margin:0;color:var(--muted);font-size:.9rem;display:-webkit-box;-webki
 -webkit-box-orient:vertical;overflow:hidden}
 .sum{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;background:var(--card);
 padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
-.sum details{border-top:1px solid var(--line);padding:6px 0}.sum summary{cursor:pointer;font-weight:600}
+.sum details{border-top:1px solid var(--line);padding:6px 0}
+.older>summary{color:var(--muted)}.older>details{margin-left:14px}.older>details:first-of-type{margin-top:6px}.sum summary{cursor:pointer;font-weight:600}
 .ws{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
 .w{border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0}
 .sum h4{margin:0;font-size:.68rem;line-height:1.25;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);
@@ -261,15 +262,19 @@ def render_summary(items):
     if not hours or hours[0][0] != now:
         out.append('<p class="wait">Čekamo nove podatke za %s, još uvek ih nema.%s</p>' % (
             span(now), " Ispod su poslednji podaci." if hours else ""))
+    blocks = []
     for n, (h, d) in enumerate(hours):
         nepr = d["nepr"]
         nepr_txt = link(nepr[0], e(nepr[0]["title"])) + (
             " · +%d još" % (len(nepr) - 1) if len(nepr) > 1 else "") if nepr else ""
-        out.append('<details%s><summary>%s</summary><div class="ws">%s%s%s</div></details>' % (
+        blocks.append('<details%s><summary>%s</summary><div class="ws">%s%s%s</div></details>' % (
             " open" if n == 0 else "", span(h),
             widget("Procenat izlaznosti po gradovima", *turnout(d["grad"])),
             widget("Procenat izlaznosti u dijaspori", *turnout(d["dijaspora"], False)),
             widget("Nepravilnosti", len(nepr), nepr_txt)))
+    out += blocks[:1]  # newest hour stays visible, the older ones fold into "Raniji podaci"
+    if len(blocks) > 1:
+        out.append('<details class="older"><summary>Raniji podaci</summary>%s</details>' % "".join(blocks[1:]))
     return ('<section class="sum"><h2>Pregled po satima</h2>%s<p class="note">Brojevi iz vesti, '
             'bez procena. Zvanični podaci: RIK, CRTA, CeSID.</p></section>') % (
         "".join(out))
