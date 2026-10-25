@@ -22,6 +22,7 @@ FEEDS = [
     ("Insajder", "https://insajder.net/feed"),
     ("Danas", "https://www.danas.rs/feed/"),
     ("Mašina", "https://www.masina.rs/feed/"),
+    ("Južne vesti", "https://www.juznevesti.com/feed/"),  # Niš and the south
 ]
 
 # Edit freely. Matched at the start of a word, ignoring case, Cyrillic/Latin and č/ć/š/ž/đ.
@@ -81,7 +82,7 @@ def city_re(city):
     return re.compile(r"\b" + r"\w*\s+".join(stems) + r"\w*")
 
 
-CITY_RES = [(c, city_re(c)) for c in CITIES]
+CITY_RES = [(c, city_re(c)) for c in CITIES] + [("Srbija", re.compile(r"\bsrbij\w*"))]
 PATTERN, EXCLUDE_PATTERN = words(KEYWORDS), words(EXCLUDE)
 TURNOUT_P, DIASPORA_P, IRREGULAR_P = words(TURNOUT), words(DIASPORA), words(IRREGULAR)
 PERCENT = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|odsto|posto|procen\w*)")
@@ -153,29 +154,48 @@ def collect(show_all):
     return out, failed
 
 
+def pct(text):  # first percentage: "18,2 odsto" -> "18,2%"
+    return re.search(r"\d+(?:[.,]\d+)?", PERCENT.search(text).group()).group() + "%"
+
+
+def places(l):
+    """[(place, "31,2%")] for each city in the sentence ("Beograd 35%, Niš 31%"), else [("Srbija", ...)]."""
+    hits = sorted((m.start(), c) for c, r in CITY_RES for m in [r.search(l)] if m)
+    out = []
+    for i, (start, c) in enumerate(hits):
+        end = hits[i + 1][0] if i + 1 < len(hits) else len(l)
+        seg = l[start:end]
+        if not PERCENT.search(seg) and i == 0:  # "izlaznost 33% u Nišu": the figure comes first
+            seg = l[:end]
+        if PERCENT.search(seg):
+            out.append((c, pct(seg)))
+    return out or [("Srbija", pct(l))]
+
+
 def summarize(items):
-    """{hour: {"grad": [(label, sentence, item)], "dijaspora": [...], "nepr": [item]}}, newest first."""
+    """{hour: {"grad": [(place, sentence, item, "31,2%")], "dijaspora": [...], "nepr": [item]}}, newest first."""
     hours = {}
     for it in items:
         if not relevant(it):
             continue
         h = hours.setdefault(local(it["when"]).replace(minute=0, second=0, microsecond=0),
                              {"grad": [], "dijaspora": [], "nepr": [], "seen": set()})
+        prev_turnout = False
         for sent in re.split(r"(?<=[.!?])\s+", it["title"] + ". " + it["body"]):
-            n = norm(sent)
-            if not PERCENT.search(sent) or len(sent) > 300:
-                continue
-            # diacritics kept for cities, so "nisu" (are not) is not read as Niš
-            city = next((c for c, r in CITY_RES if r.search(lat(sent))), "Srbija")
-            key = (city, tuple(re.findall(r"\d+(?:[.,]\d+)?", sent)))  # same figure only once
-            if key in h["seen"]:
+            n, l = norm(sent), lat(sent)  # diacritics kept for cities, so "nisu" is not read as Niš
+            # a turnout figure: the sentence, or the one before it, talks about turnout
+            turnout, prev_turnout = TURNOUT_P.search(n) or prev_turnout, bool(TURNOUT_P.search(n))
+            if not PERCENT.search(l) or len(sent) > 300 or not (turnout or DIASPORA_P.search(n)):
                 continue
             if DIASPORA_P.search(n):
-                h["seen"].add(key)
-                h["dijaspora"].append(("Dijaspora", sent, it))
-            elif TURNOUT_P.search(n):
-                h["seen"].add(key)
-                h["grad"].append((city, sent, it))
+                found = [("Dijaspora", pct(l))]
+            else:
+                found = places(l)
+            for place, value in found:
+                if (place, value) in h["seen"]:  # same figure only once per hour
+                    continue
+                h["seen"].add((place, value))
+                h["dijaspora" if place == "Dijaspora" else "grad"].append((place, sent, it, value))
         if IRREGULAR_P.search(norm(it["title"] + " " + it["snippet"])):
             h["nepr"].append(it)
     return sorted(hours.items(), reverse=True)
@@ -248,9 +268,6 @@ def render_summary(items):
     def link(it, txt):
         return '<a href="%s" target="_blank" rel="noopener">%s</a>' % (e(it["link"]), txt)
 
-    def pct(sent):  # "18,2 odsto" -> "18,2%"
-        return re.search(r"\d+(?:[.,]\d+)?", PERCENT.search(sent).group()).group() + "%"
-
     def hm(it):
         return local(it["when"]).strftime("%H:%M")
 
@@ -264,10 +281,10 @@ def render_summary(items):
         if not rows:
             return "—", ""
         first = next((r for r in rows if r[0] == "Srbija"), rows[0])
-        links = " · ".join(link(it, "%s %s" % (e(lab), pct(sent)) if by_city else
-                                "%s %s" % (pct(sent), e(it["outlet"]))) for lab, sent, it in rows)
+        links = " · ".join(link(it, "%s %s" % (e(lab), val) if by_city else
+                                "%s %s" % (val, e(it["outlet"]))) for lab, sent, it, val in rows)
         when = ("Poslednji podatak u %s" if old else "Ažurirano %s") % hm(first[2])
-        return pct(first[1]), when + "<br>" + links, old
+        return first[3], when + "<br>" + links, old
 
     def span(h):
         return "%s–%02d:00 h" % (h.strftime("%H:00"), (h.hour + 1) % 24)

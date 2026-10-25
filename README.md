@@ -31,7 +31,7 @@ irregularities, as three small widgets with a big number. The numbers are taken 
 The link is public, but nobody will find it unless you share it.
 Files: `api/index.py` and `vercel.json`.
 
-## Sources (RSS, all checked working on 2026-10-25)
+## Sources (RSS)
 
 | Outlet | Feed |
 |---|---|
@@ -44,5 +44,6 @@ Files: `api/index.py` and `vercel.json`.
 | Insajder | https://insajder.net/feed |
 | Danas | https://www.danas.rs/feed/ |
 | Mašina | https://www.masina.rs/feed/ |
+| Južne vesti (Niš) | https://www.juznevesti.com/feed/ (added 25 Oct, not yet checked) |
 
 birn.rs has no feed. No separate feed found for TV Nova / Nova S; nova.rs covers it.
