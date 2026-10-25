@@ -215,7 +215,7 @@ padding:10px 14px;margin-bottom:14px}.sum h2{margin:0 0 4px;font-size:1.05rem}
 .sum details{border-top:1px solid var(--line);padding:6px 0}.sum summary{cursor:pointer;font-weight:600}
 .sum h4{margin:8px 0 2px;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .sum ul{margin:0;padding-left:18px;font-size:.9rem}.sum li{margin:3px 0}.sum a{color:var(--fg)}
-.sum .none{color:var(--muted);font-size:.85rem;margin:0}.sum .note{color:var(--muted);font-size:.75rem;margin:6px 0 0}
+.sum .wait{color:var(--muted);font-size:.9rem;margin:2px 0 6px}.sum .note{color:var(--muted);font-size:.75rem;margin:6px 0 0}
 """
 
 JS = """
@@ -232,12 +232,19 @@ def render_summary(items):
     def src(it):
         return ' <a href="%s" target="_blank" rel="noopener">%s</a>' % (e(it["link"]), e(it["outlet"]))
 
-    def block(title, lis):
-        return "<h4>%s</h4>" % title + (
-            "<ul>%s</ul>" % "".join(lis) if lis else '<p class="none">Nema podataka u vestima.</p>')
+    def block(title, lis):  # empty parts are left out
+        return "<h4>%s</h4><ul>%s</ul>" % (title, "".join(lis)) if lis else ""
 
-    hours = summarize(items)
+    def span(h):
+        return "%s–%02d:00 h" % (h.strftime("%H:00"), (h.hour + 1) % 24)
+
+    # only hours with something to show; the newest of them is opened
+    hours = [(h, d) for h, d in summarize(items) if d["grad"] or d["dijaspora"] or d["nepr"]]
+    now = local(datetime.now(timezone.utc)).replace(minute=0, second=0, microsecond=0)
     out = []
+    if not hours or hours[0][0] != now:
+        out.append('<p class="wait">Čekamo nove podatke za %s, još uvek ih nema.%s</p>' % (
+            span(now), " Ispod su poslednji podaci." if hours else ""))
     for n, (h, d) in enumerate(hours):
         lines = {}
         for k in ("grad", "dijaspora"):
@@ -245,14 +252,14 @@ def render_summary(items):
                 e(lab), PERCENT.sub(lambda m: "<b>%s</b>" % m.group(), e(sent)), src(it))
                 for lab, sent, it in d[k]]
         nepr = ['<li>%s ·%s</li>' % (e(it["title"]), src(it)) for it in d["nepr"]]
-        out.append('<details%s><summary>%s–%02d:00 h</summary>%s%s%s</details>' % (
-            " open" if n == 0 else "", h.strftime("%H:00"), (h.hour + 1) % 24,
+        out.append('<details%s><summary>%s</summary>%s%s%s</details>' % (
+            " open" if n == 0 else "", span(h),
             block("Procenat izlaznosti po gradovima", lines["grad"]),
             block("Procenat izlaznosti u dijaspori", lines["dijaspora"]),
             block("Nepravilnosti (%d)" % len(nepr), nepr)))
     return ('<section class="sum"><h2>Pregled po satima</h2>%s<p class="note">Rečenice iz vesti, '
             'bez procena. Zvanični podaci: RIK, CRTA, CeSID.</p></section>') % (
-        "".join(out) or '<p class="none">Još nema podataka.</p>')
+        "".join(out))
 
 
 def render(items, failed, show_all):
