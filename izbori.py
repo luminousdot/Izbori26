@@ -332,7 +332,7 @@ def render_summary(items):
     def widget(label, big, small, old=False, attrs=""):
         cls = " zero" if big in ("—", 0) else " old" if old else ""
         return '<div class="w"%s><h4>%s</h4><div class="big%s">%s</div><div class="small">%s</div></div>' % (
-            attrs, label, cls, big, small or "Čekamo podatke")
+            attrs, label, cls, big, small or "Još nijedan broj u vestima od " + SINCE.strftime("%H:%M"))
 
     def turnout(cell):  # big number: the latest figure; below it, every source
         rows, old = cell
