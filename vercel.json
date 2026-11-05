@@ -1,4 +1,11 @@
 {
-  "functions": { "api/index.py": { "includeFiles": "izbori.py", "maxDuration": 30 } },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "functions": {
+    "api/index.py": { "includeFiles": "izbori.py", "maxDuration": 30 },
+    "api/stanje.py": { "includeFiles": "{izbori,stanje}.py", "maxDuration": 30 }
+  },
+  "rewrites": [
+    { "source": "/stanje", "destination": "/api/stanje" },
+    { "source": "/stanje.html", "destination": "/api/stanje" },
+    { "source": "/(.*)", "destination": "/api/index" }
+  ]
 }

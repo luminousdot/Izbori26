@@ -513,7 +513,7 @@ def render(items, failed, show_all):
 <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
 <body><main><header><div class="top"><h1>Izbori 2026</h1>
 <div class="btns"><button id="reload" type="button" aria-label="Osveži" title="Osveži">&#x21BB;</button>
-<button id="theme" type="button" aria-label="Promeni temu"></button></div></div><p>Ažurirano %s · %d vesti%s</p></header>%s
+<button id="theme" type="button" aria-label="Promeni temu"></button></div></div><p>Ažurirano %s · %d vesti%s · <a href="stanje.html" style="color:var(--muted)">Spin i realnost ›</a></p></header>%s
 %s<div class="chips">%s</div>%s</main><script>%s</script></body></html>""" % (
         CSS, now.strftime("%d.%m.%Y. %H:%M"), len(items), " · sve vesti" if show_all else "",
         fail, render_summary(items), chips, rows or "<p>Nema vesti.</p>", JS)

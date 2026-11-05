@@ -32,6 +32,20 @@ for now.) To add cities or words, edit `CITIES`, `WORLD`,
 The link is public, but nobody will find it unless you share it.
 Files: `api/index.py` and `vercel.json`.
 
+## Spin i realnost
+
+```sh
+python3 stanje.py           # write stanje.html and open it (on Vercel: /stanje)
+python3 stanje.py --watch   # same, every 5 minutes
+```
+
+Every statement by Vučić or SNS from the last 7 days (headlines like "Vučić: …", "Brnabić najavila …")
+is shown next to news on the same topic from the same days: shared words or the same kind of event,
+events first (arrests, criminal complaints, resignations, actions of institutions). Below: what Vučić/SNS
+and Studentska lista do, and the arrests, complaints and resignations with who is mentioned. All tags come
+from the headline words in `SIDES` and `ACTIONS` at the top of `stanje.py`; the page does not judge who is
+right. Raspad sistema (raspadsistema.com/feed/) is read if it has a feed, quietly skipped if not.
+
 ## Sources (RSS)
 
 | Outlet | Feed |
